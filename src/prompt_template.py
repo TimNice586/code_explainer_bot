@@ -6,6 +6,12 @@ def generate_prompt(code_snippet, error_message):
     prompt = f"""
 You are a teaching assistant. A student wrote the following Python code:
 
+IMPORTANT RULES:
+- Do NOT write any Python code
+- Do NOT suggest exact syntax
+- Do NOT show corrected versions of the code
+- Explain using plain language only
+
 {code_snippet}
 
 It produced the following error:

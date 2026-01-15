@@ -3,69 +3,55 @@ from google import genai
 from dotenv import load_dotenv
 from prompt_template import generate_prompt
 
-# --------------------------
-# 1️⃣ Load API key and init client
-# --------------------------
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise Exception("Set GOOGLE_API_KEY in your .env file")
-
-# Initialize the modern Client
-client = genai.Client(api_key=API_KEY)
-
-# --------------------------
-# 2️⃣ Execution Functions
-# --------------------------
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def run_code_and_capture_error(code):
-    """
-    Runs code and captures the exception message.
-    Returns None if no error occurs.
-    """
     try:
-        # Using a shared dict for globals/locals to mimic a real environment
         exec_globals = {}
+        compile(code, "<student_code>", "exec")
         exec(code, exec_globals)
         return None
     except Exception as e:
         return str(e)
 
-
 def explain_error_with_llm(code):
-    """
-    Sends the code + captured error to Gemini and gets an explanation.
-    """
     error_message = run_code_and_capture_error(code)
-    
     if not error_message:
-        return "No error found in code."
+        return "✅ No error found in code."
 
-    # This uses your existing prompt_template.py logic
     prompt = generate_prompt(code, error_message)
 
-    # ---------------------------------------
-    # 3️⃣ Call Gemini (Modern SDK Syntax)
-    # ---------------------------------------
-    # Note: 'gemini-2.5-flash' is the standard current identifier.
-    print(prompt)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config={
-            "temperature": 0.2,
-            "max_output_tokens": 1999,
-        }
-    )
+    # UPDATED NAMES FOR 2026
+    models_to_try = [
+        "gemini-3-flash-preview", 
+        "gemini-2.5-flash", 
+        "gemini-2.5-flash-lite"
+    ]
 
-    return response.text
+    for model_name in models_to_try:
+        try:
+            print(f"🤖 Attempting with {model_name}...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return f"--- Results from {model_name} ---\n{response.text}"
 
-# --------------------------
-# 4️⃣ Sanity Check
-# --------------------------
+        except Exception as e:
+            msg = str(e).upper()
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                print(f"❌ {model_name} quota full. Trying next...")
+                continue
+            elif "404" in msg:
+                print(f"❌ {model_name} name not recognized. Trying next...")
+                continue
+            else:
+                return f"Unexpected Error: {str(e)}"
+
+    return "🚫 All free buckets are empty for today."
+
 if __name__ == "__main__":
-    test_code = 'x = 10\nprint(y)'
-    print("--- Running Error Explainer ---")
-    explanation = explain_error_with_llm(test_code)
-    print(explanation)
+    # Test with a simple bug
+    buggy_code = "print(undefined_variable)"
+    print(explain_error_with_llm(buggy_code))
