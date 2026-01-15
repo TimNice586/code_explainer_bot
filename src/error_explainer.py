@@ -36,7 +36,7 @@ def explain_error_with_llm(code):
                 model=model_name,
                 contents=prompt
             )
-            return f"--- Results from {model_name} ---\n{response.text}"
+            return f"--- Results from {model_name} --- \n\n {response.text}"
 
         except Exception as e:
             msg = str(e).upper()
